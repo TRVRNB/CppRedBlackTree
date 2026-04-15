@@ -11,7 +11,7 @@ using namespace std;
 // also, nobody uses light mode terminal, black is white, deal with it
 
 namespace red_black_tree{
-  string version = "1.1";
+  string version = "1.2";
   Node* root = new Node(0);
 }
 using namespace red_black_tree;
@@ -23,20 +23,20 @@ Node* add_to_tree(unsigned short to_add, Node* add_to){
     if (add_to == root){
       root = new Node(to_add);
       // create leaves, too
-      // leaves are blank nodes (0), treated as not existing
+      // leaves are blank nodes (0), treated as null
       root->left = new Node(0);
       root->left->color = Color::black;
       root->right = new Node(0);
       root->right->color = Color::black;
       return root;
     }
-    add_to = new Node(to_add);
+    Node* new_node = new Node(to_add);
     // again, create leaves
-    add_to->left = new Node(0);
-    add_to->left->color = Color::black;
-    add_to->right = new Node(0);
-    add_to->right->color = Color::black;
-    return add_to;
+    new_node->left = new Node(0);
+    new_node->left->color = Color::black;
+    new_node->right = new Node(0);
+    new_node->right->color = Color::black;
+    return new_node;
   }
   if (to_add < add_to->value){ // less than
     Node* child = add_to_tree(to_add, add_to->left);
@@ -54,6 +54,7 @@ Node* add_to_tree(unsigned short to_add, Node* add_to){
     child->parent = add_to;
     add_to->right = child;
   }
+  // end
   return nullptr;
 }
 
@@ -79,7 +80,11 @@ void print_tree(Node* to_print, unsigned short recursion){
   } else if (to_print->color == Color::black){
     cout << WHITE;
   }
-  cout << to_print->value << endl; // cout self
+  if (to_print->value != 0){
+    cout << to_print->value << endl; // cout self
+  } else {
+    cout << "null" << endl;
+  }
   print_tree(to_print->left, recursion); // print left
 }
 
@@ -95,9 +100,9 @@ int main(){
     if (input == "HELP"){ // HELP
       cout << WHITE << "HELP: prints a list of commands (obviously)" << endl;
       cout << WHITE << "QUIT: stops the program" << endl;
-      cout << WHITE << "ADD: adds a number to the binary tree" << endl;
+      cout << WHITE << "ADD: adds a number to the tree" << endl;
       cout << WHITE << "LOAD: adds multiple numbers from a file" << endl;
-      cout << WHITE << "PRINT: prints the binary tree" << endl;
+      cout << WHITE << "PRINT: prints the tree" << endl;
       cout << WHITE << "SEARCH: find if a number exists" << endl;
       cout << WHITE << "DELETE: delete a number from the tree" << endl;
     } else if (input == "ADD"){ // ADD
