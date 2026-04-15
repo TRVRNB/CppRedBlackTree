@@ -15,9 +15,10 @@ class Node{
  public:
   Node(unsigned short n_value);
   unsigned short value; // what integer this node represents
+  Node* parent = nullptr; // parent
   Node* left = nullptr; // left child, must be smaller
   Node* right = nullptr; // right child, must be bigger
-  Color color; // is this node red or black
+  Color color = Color::red; // is this node red or black
 };
 
 #endif

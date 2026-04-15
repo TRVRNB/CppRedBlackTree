@@ -12,24 +12,37 @@ using namespace std;
 
 namespace red_black_tree{
   string version = "1.0";
-  Node* root = nullptr;
+  Node* root = new Node(0);
 }
 using namespace red_black_tree;
 
 Node* add_to_tree(unsigned short to_add, Node* add_to){
   // recursive function, checks this node and its children for empty space that fits the binary search tree requirements
   // yes i know the variable names are terrible
-  if (add_to == nullptr){ // empty space is found (requirements are checked by the previous recursion), should also work for root
+  if (add_to->value == 0){ // empty space is found (requirements are checked by the previous recursion), should also work for root
     if (add_to == root){
       root = new Node(to_add);
+      // create leaves, too
+      // leaves are blank nodes (0), treated as not existing
+      root->left = new Node(0);
+      root->left->color = Color::black;
+      root->right = new Node(0);
+      root->right->color = Color::black;
       return root;
     }
     add_to = new Node(to_add);
+    // again, create leaves
+    add_to->left = new Node(0);
+    add_to->left->color = Color::black;
+    add_to->right = new Node(0);
+    add_to->right->color = Color::black;
     return add_to;
   }
   if (to_add < add_to->value){ // less than
     Node* child = add_to_tree(to_add, add_to->left);
     if (child != nullptr){
+      delete add_to->left;
+      child->parent = add_to;
       add_to->left = child;
     }
     return nullptr;
@@ -37,6 +50,8 @@ Node* add_to_tree(unsigned short to_add, Node* add_to){
   // greater than or equal to
   Node* child = add_to_tree(to_add, add_to->right);
   if (child != nullptr){
+    delete add_to->right;
+    child->parent = add_to;
     add_to->right = child;
   }
   return nullptr;
