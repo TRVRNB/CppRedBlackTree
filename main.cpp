@@ -11,7 +11,7 @@ using namespace std;
 // also, nobody uses light mode terminal, black is white, deal with it
 
 namespace red_black_tree{
-  string version = "1.0";
+  string version = "1.1";
   Node* root = new Node(0);
 }
 using namespace red_black_tree;
