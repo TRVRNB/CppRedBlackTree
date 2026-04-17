@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <vector>
 #include <fstream>
 #include "terminal_format.cpp"
 #include "node.h"
@@ -9,14 +10,43 @@ using namespace std;
 // https://github.com/TRVRNB/CppRedBlackTree.git
 // this is a fork of my previous project, https://github.com/TRVRNB/CppBinaryTree.git
 // also, nobody uses light mode terminal, black is white, deal with it
+// red/black is a binary tree type, designed to balance itself and minimize the worst-case time complexity
+// all null nodes (empty root, leaf nodes) are black
+// red nodes can only have black children
+// every path from a node to any of its leaves must have the same number of black nodes as all other paths
+// this last rule means that the tree is balanced around black nodes, which usually means red/black will just alternate, and extra nodes added at the end will always be red (not null leaf nodes!)
+// these rules guarantee that the binary tree is somewhat balanced, but a special rebalancing function needs to be added
 
 namespace red_black_tree{
-  string version = "1.2";
+  string version = "1.3";
   Node* root = new Node(0);
+  bool unbalanced = false;
 }
 using namespace red_black_tree;
 
+void find_black_nodes(Node* current_node, vector<unsigned int>* black_nodes, unsigned int n){
+  // recursive function, searches through all of the paths from this node and counts the amount of black ones
+  if (current_node->color == Color::black){
+    n++;
+  }
+  if (current_node->value == 0){ // leaf node
+    black_nodes->push_back(n); // add the number of nodes from this branch
+    return;
+  }
+  // call this function on children
+  find_black_nodes(current_node->left, black_nodes, n);
+  find_black_nodes(current_node->right, black_nodes, n);
+}
+
+void rebalance(){
+  // rebalance this tree
+  unbalanced = false;
+  // work on this later!
+}
+
 Node* add_to_tree(unsigned short to_add, Node* add_to){
+  Node* child = nullptr; // nullptr for now, dynamic allocation would create a memory leak later
+  bool success = false;
   // recursive function, checks this node and its children for empty space that fits the binary search tree requirements
   // yes i know the variable names are terrible
   if (add_to->value == 0){ // empty space is found (requirements are checked by the previous recursion), should also work for root
@@ -28,6 +58,7 @@ Node* add_to_tree(unsigned short to_add, Node* add_to){
       root->left->color = Color::black;
       root->right = new Node(0);
       root->right->color = Color::black;
+      root->color = Color::black; // root is black
       return root;
     }
     Node* new_node = new Node(to_add);
@@ -36,25 +67,47 @@ Node* add_to_tree(unsigned short to_add, Node* add_to){
     new_node->left->color = Color::black;
     new_node->right = new Node(0);
     new_node->right->color = Color::black;
+    new_node->color = Color::red; // treat red as 'default' for now?
     return new_node;
   }
   if (to_add < add_to->value){ // less than
-    Node* child = add_to_tree(to_add, add_to->left);
+    child = add_to_tree(to_add, add_to->left);
     if (child != nullptr){
       delete add_to->left;
       child->parent = add_to;
       add_to->left = child;
+      success = true;
     }
-    return nullptr;
-  }
-  // greater than or equal to
-  Node* child = add_to_tree(to_add, add_to->right);
-  if (child != nullptr){
-    delete add_to->right;
-    child->parent = add_to;
-    add_to->right = child;
+  } else {
+    // greater than or equal to
+    child = add_to_tree(to_add, add_to->right);
+    if (child != nullptr){
+      delete add_to->right;
+      child->parent = add_to;
+      add_to->right = child;
+      success = true;
+    }
   }
   // end
+  if (!success){ // this only happens if a parent returns nullptr, meaning there has already been a success
+    return nullptr;
+  }
+  // at this point, a new red node has been added to the tree, so check if it's unbalanced
+  if (child->parent != nullptr){
+    if (child->parent->color == Color::red && child->color == Color::red){ // red node has red child
+      child->color = Color::black; // set this child to black
+      // check if all paths from parent have equal number of black nodes (recursive)
+      vector<unsigned int>* black_nodes = new vector<unsigned int>(); // all values must be equal to still be considered balanced
+      find_black_nodes(root, black_nodes, 0); // populate this vector
+      unsigned int first_number = black_nodes->at(0); // get the first value
+      for (unsigned int n : *black_nodes){ // if there is only one element in this vector, this check will always succeed
+		if (first_number != n){
+		  unbalanced = true; // failed check, rebalance after this
+		}
+      }
+      delete black_nodes;
+    }
+  }
   return nullptr;
 }
 
@@ -96,7 +149,7 @@ int main(){
   while (input != "QUIT"){ // QUIT
     input = "";
     cout << GREEN << "Enter a command: " << RESET << flush;
-					      cin >> input; // why does GNU-emacs hate this line?
+    cin >> input; // GNU-emacs fixed this line on the red-black version?
     if (input == "HELP"){ // HELP
       cout << WHITE << "HELP: prints a list of commands (obviously)" << endl;
       cout << WHITE << "QUIT: stops the program" << endl;
@@ -116,6 +169,9 @@ int main(){
 	continue;
       }
       add_to_tree(to_add, root); // call add to root
+      if (unbalanced){
+	rebalance();
+      }
       cout << WHITE << "Added " << to_add << " to tree." << endl;
 
     } else if (input == "PRINT"){ // PRINT
@@ -167,27 +223,34 @@ int main(){
       cin >> input;
       unsigned short to_find = stoi(input); // cast to int
       cout << RESET;
-      while (current_node->value != to_find){
+      while (current_node->value != to_find){ // keep looking, print a debugging message first
+	// set color
+	string c;
+	if (current_node->color == Color::red){
+	  c = RED;
+	} else {
+	  c = WHITE;
+	}
 	// stop searching if it reaches a wall or it finds the right number
 	if (current_node->value > to_find){ // too big
-	  cout << "Less than " << current_node->value << "..." << endl;
+	  cout << "Less than " << c << current_node->value << RESET << "..." << endl;
 	  current_node = current_node->left;
 	} else { // too small
-	  cout << "Greater than " << current_node->value << "..." << endl;
+	  cout << "Greater than " << c << current_node->value << RESET << "..." << endl;
 	  current_node = current_node->right;
 	}
-	if (current_node == nullptr){ // end found
+	if (current_node->value == 0){ // end found
 	  break;
 	}
       }
       // now, find out if it failed
-      if (current_node == nullptr){ // failure
+      if (current_node->value == 0){ // failure
 	cout << WHITE << "No instances of " << YELLOW << to_find << WHITE << " found." << endl;
       } else { // success
 	cout << WHITE << "That number exists!" << endl;
       }
     } else if (input == "DELETE"){ // DELETE
-      if (root == nullptr){
+      if (root->value == 0){
 	cout << RED << "Add some numbers first!" << endl;
       }
       Node* current_node = root;
