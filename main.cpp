@@ -18,97 +18,129 @@ using namespace std;
 // these rules guarantee that the binary tree is somewhat balanced, but a special rebalancing function needs to be added
 
 namespace red_black_tree{
-  string version = "1.3";
+  string version = "1.4";
   Node* root = new Node(0);
-  bool unbalanced = false;
 }
 using namespace red_black_tree;
 
-void find_black_nodes(Node* current_node, vector<unsigned int>* black_nodes, unsigned int n){
-  // recursive function, searches through all of the paths from this node and counts the amount of black ones
-  if (current_node->color == Color::black){
-    n++;
+void rotate_left(Node* to_rotate){
+  // swap this node with its right child, which is guaranteed to be greater, both will keep their right children
+  Node* node2 = to_rotate->right;
+  to_rotate->right = node2->left;
+  if (node2->left != nullptr && node2->left->value != 0){ // through most compilers, the != nullptr check should prevent the next from running if it's false
+    node2->left->parent = to_rotate; // update parent
   }
-  if (current_node->value == 0){ // leaf node
-    black_nodes->push_back(n); // add the number of nodes from this branch
-    return;
+  node2->parent = to_rotate->parent;
+  if (to_rotate == root){ // check for root case
+    root = node2; // change root
+  } else if (to_rotate == to_rotate->parent->left){ // is left child
+    to_rotate->parent->left = node2;
+  } else { // is right child
+    to_rotate->parent->right = node2;
   }
-  // call this function on children
-  find_black_nodes(current_node->left, black_nodes, n);
-  find_black_nodes(current_node->right, black_nodes, n);
+  node2->left = to_rotate;
+  to_rotate->parent = node2;
 }
 
-void rebalance(){
-  // rebalance this tree
-  unbalanced = false;
-  // work on this later!
+void rotate_right(Node* to_rotate){
+  // similar to rotate_left()
+  Node* node2 = to_rotate->left;
+  to_rotate->left = node2->right;
+  if (node2->right != nullptr && node2->right->value != 0){
+    node2->right->parent = to_rotate; // update parent
+  }
+  node2->parent = to_rotate->parent;
+  if (to_rotate == root){
+    root = node2;
+  } else if (to_rotate == to_rotate->parent->right){ // is right child
+    to_rotate->parent->right = node2;
+  } else { // is left child
+    to_rotate->parent->left = node2;
+  }
+  node2->right = to_rotate;
+  to_rotate->parent = node2;
+}
+
+void fix_insert(Node* to_fix){
+  // rebalance this branch of the tree
+  while (to_fix != root && to_fix->parent->color == Color::red){ // this should be a black node or the tree should be rotated
+    Node* parent1 = to_fix->parent;
+    Node* parent2 = parent1->parent; // this is guaranteed to not throw an error as long as to_fix isn't root
+    if (parent2 == nullptr){ // parent is root
+      break;
+    }
+    if (parent1 == parent2->left){ // is left grandchild
+      Node* aunt = parent2->right;
+      if (aunt->color == Color::red){ // if the aunt is currently red, try swapping the colors
+        parent1->color = Color::black;
+        aunt->color = Color::black;
+        parent2->color = Color::red;
+        to_fix = parent2; // work with grandparent now
+      } else { // this is more complicated because of the black-balancing requirement
+        if (to_fix == parent1->right){ // is right child
+          to_fix = parent1;
+          rotate_left(to_fix); // can barely wrap my mind around how this works, but this is how the R/B trees online work, so okay...
+          // to_fix should still be the grandchild of parent2, right?
+        }
+        parent1->color = Color::black;
+        parent2->color = Color::red;
+        rotate_right(parent2); // now, swap parent2 with the aunt node? is that right?
+      }
+    } else { // is right grandchild
+      Node* uncle = parent2->left; // assigning genders to left/right nodes was a weird idea in hindsight (especially since each child only has 1 parent, and this means the root node is genderless?)
+      if (uncle->color == Color::red){ // if uncle is currently red, try swapping the colors
+        parent1->color = Color::black;
+        uncle->color = Color::black;
+        parent2->color = Color::red;
+        to_fix = parent2; // work with grandparent now
+      } else { // same story as with the aunt
+        if (to_fix == parent1->left){
+          to_fix = parent1;
+          rotate_right(to_fix);
+        }
+        parent1->color = Color::black;
+        parent2->color = Color::red;
+        rotate_left(parent2);
+      }
+    }
+  }
+  root->color = Color::black;
 }
 
 Node* add_to_tree(unsigned short to_add, Node* add_to){
-  Node* child = nullptr; // nullptr for now, dynamic allocation would create a memory leak later
-  bool success = false;
-  // recursive function, checks this node and its children for empty space that fits the binary search tree requirements
-  // yes i know the variable names are terrible
   if (add_to->value == 0){ // empty space is found (requirements are checked by the previous recursion), should also work for root
-    if (add_to == root){
-      root = new Node(to_add);
-      // create leaves, too
-      // leaves are blank nodes (0), treated as null
-      root->left = new Node(0);
-      root->left->color = Color::black;
-      root->right = new Node(0);
-      root->right->color = Color::black;
-      root->color = Color::black; // root is black
-      return root;
-    }
     Node* new_node = new Node(to_add);
     // again, create leaves
     new_node->left = new Node(0);
     new_node->left->color = Color::black;
+    new_node->left->parent = new_node;
     new_node->right = new Node(0);
     new_node->right->color = Color::black;
+    new_node->right->parent = new_node;
     new_node->color = Color::red; // treat red as 'default' for now?
+    new_node->parent = nullptr;
     return new_node;
   }
   if (to_add < add_to->value){ // less than
-    child = add_to_tree(to_add, add_to->left);
-    if (child != nullptr){
+    if (add_to->left->value == 0){ // found leaf node to replace
+      Node* child = add_to_tree(to_add, add_to->left);
       delete add_to->left;
-      child->parent = add_to;
       add_to->left = child;
-      success = true;
-    }
-  } else {
-    // greater than or equal to
-    child = add_to_tree(to_add, add_to->right);
-    if (child != nullptr){
-      delete add_to->right;
       child->parent = add_to;
-      add_to->right = child;
-      success = true;
+      return child;
     }
+    return add_to_tree(to_add, add_to->left);
+  } else { // greater than or equal to
+    if (add_to->right->value == 0){
+      Node* child = add_to_tree(to_add, add_to->right);
+      delete add_to->right;
+      add_to->right = child;
+      child->parent = add_to;
+      return child;
+    }
+    return add_to_tree(to_add, add_to->right);
   }
   // end
-  if (!success){ // this only happens if a parent returns nullptr, meaning there has already been a success
-    return nullptr;
-  }
-  // at this point, a new red node has been added to the tree, so check if it's unbalanced
-  if (child->parent != nullptr){
-    if (child->parent->color == Color::red && child->color == Color::red){ // red node has red child
-      child->color = Color::black; // set this child to black
-      // check if all paths from parent have equal number of black nodes (recursive)
-      vector<unsigned int>* black_nodes = new vector<unsigned int>(); // all values must be equal to still be considered balanced
-      find_black_nodes(root, black_nodes, 0); // populate this vector
-      unsigned int first_number = black_nodes->at(0); // get the first value
-      for (unsigned int n : *black_nodes){ // if there is only one element in this vector, this check will always succeed
-		if (first_number != n){
-		  unbalanced = true; // failed check, rebalance after this
-		}
-      }
-      delete black_nodes;
-    }
-  }
-  return nullptr;
 }
 
 void print_tree(Node* to_print, unsigned short recursion){
@@ -142,10 +174,11 @@ void print_tree(Node* to_print, unsigned short recursion){
 }
 
 int main(){
+  root->parent = nullptr; // JUST IN CASE!
+  root->color = Color::black;
   cout << RED << "Red" << GREEN << '/' << WHITE << "Black" << GREEN << " Tree - Version " << version << endl;
   cout << YELLOW << "Type 'HELP' for a list of commands." << endl;
   string input;
-
   while (input != "QUIT"){ // QUIT
     input = "";
     cout << GREEN << "Enter a command: " << RESET << flush;
@@ -157,7 +190,6 @@ int main(){
       cout << WHITE << "LOAD: adds multiple numbers from a file" << endl;
       cout << WHITE << "PRINT: prints the tree" << endl;
       cout << WHITE << "SEARCH: find if a number exists" << endl;
-      cout << WHITE << "DELETE: delete a number from the tree" << endl;
     } else if (input == "ADD"){ // ADD
       string input1;
       cout << GREEN << "Enter an integer (1-999): " << RESET << flush;
@@ -168,9 +200,15 @@ int main(){
 	// this will print the wrapped version, technically you could enter -65000 and it would be within range, it's a feature
 	continue;
       }
-      add_to_tree(to_add, root); // call add to root
-      if (unbalanced){
-	rebalance();
+      Node* added = add_to_tree(to_add, root);
+      if (root->value == 0){
+        root = added;
+        root->parent = nullptr;
+        root->color = Color::black;
+        root->left->parent = root;
+        root->right->parent = root;
+      } else if (added != nullptr){
+        fix_insert(added);
       }
       cout << WHITE << "Added " << to_add << " to tree." << endl;
 
@@ -207,7 +245,16 @@ int main(){
 	  }
 	  string_index++;
 	  unsigned short to_add = stoi(current_num);
-	  add_to_tree(to_add, root);
+      Node* added = add_to_tree(to_add, root);
+      if (root->value == 0){
+        root = added;
+        root->parent = nullptr;
+        root->color = Color::black;
+        root->left->parent = root;
+        root->right->parent = root;
+      } else if (added != nullptr){
+        fix_insert(added);
+      }
 	}
       cout << WHITE << "Done!" << endl;
       }
@@ -248,97 +295,6 @@ int main(){
 	cout << WHITE << "No instances of " << YELLOW << to_find << WHITE << " found." << endl;
       } else { // success
 	cout << WHITE << "That number exists!" << endl;
-      }
-    } else if (input == "DELETE"){ // DELETE
-      if (root->value == 0){
-	cout << RED << "Add some numbers first!" << endl;
-      }
-      Node* current_node = root;
-      Node* previous_node = nullptr;
-      cout << GREEN << "Enter a number to delete: " << RESET << flush;
-      string input;
-      cin >> input;
-      unsigned short to_find = stoi(input);
-      cout << RESET;
-      while (current_node->value != to_find){
-	// same as SEARCH loop but keeps parent
-	previous_node = current_node;
-	if (current_node->value > to_find){
-	  current_node = current_node->left;
-	} else {
-	  current_node = current_node->right;
-	}
-	if (current_node == nullptr){
-	  break;
-	}
-      }
-      if (current_node == nullptr){ // failure
-	cout << RED << "No instances found." << endl;
-      } else {
-	// four cases: no children, one child, two children, and root
-	// for no children it can just do nothing since there will be no consequence to deleting it
-	if (current_node == root){ // check root first since it's simplest
-	  if (current_node->right != nullptr){
-	    root = current_node->right;
-	    current_node->right = nullptr;
-	  } else {
-	    root = current_node->left;
-	    current_node->left = nullptr;
-	  }
-	}
-	if (current_node->right != nullptr){ // has right child
-	  if (current_node == previous_node->right){ // donate it to parent
-	    previous_node->right = current_node->right;
-	  } else {
-	    previous_node->left = current_node->right;
-	  }
-	  if (current_node->left != nullptr){ // has left child
-	    // look for room for left child
-	    Node* current_node2 = root;
-	    Node* left = current_node->left;
-	    while (!(current_node2->left == nullptr && current_node2->value > left->value)){
-	      if (current_node2->value > left->value){
-		current_node2 = current_node2->left;
-	      } else {
-		current_node2 = current_node2->right;
-	      }
-	    }
-	    // current_node2 is new parent
-	    current_node2->left = left;
-	    current_node->left = nullptr;
-	  }
-	} else if (current_node->left != nullptr){
-	  if (previous_node != nullptr){ // not root case
-	    if (current_node == previous_node->right){
-	      previous_node->right = current_node->left;
-	    } else {
-	      previous_node->left = current_node->left;
-	    }
-	  } else {
-	    // look for room for left child (same as above), in this case there was originally a right child
-	    Node* current_node2 = root;
-	    Node* left = current_node->left;
-	    while (!(current_node2->left == nullptr && current_node2->value > left->value)){
-	      if (current_node2->value > left->value){
-		current_node2 = current_node2->left;
-	      } else {
-		current_node2 = current_node2->right;
-	      }
-	    }
-	    // current_node2 is new parent
-	    current_node2->left = left;
-	    current_node->left = nullptr;
-	  }
-	}
-	if (previous_node != nullptr){ // delete self from parent if it still exists
-	  if (previous_node->left == current_node){
-	    previous_node->left = nullptr;
-	  } else if (previous_node->right == current_node){
-	    previous_node->right = nullptr;
-	  }
-	}
-	delete current_node;
-	cout << WHITE << "Deleted " << RESET << input << endl;
       }
     }
   }
