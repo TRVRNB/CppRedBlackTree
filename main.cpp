@@ -18,7 +18,7 @@ using namespace std;
 // these rules guarantee that the binary tree is somewhat balanced, but a special rebalancing function needs to be added
 
 namespace red_black_tree{
-  string version = "1.4";
+  string version = "1.5";
   Node* root = new Node(0);
 }
 using namespace red_black_tree;
@@ -62,6 +62,7 @@ void rotate_right(Node* to_rotate){
 }
 
 void fix_insert(Node* to_fix){
+  // i didn't notice, but sometimes this function creates R/R pairs, so i added a check to the end, but i don't know if it violates the black path rule?
   // rebalance this branch of the tree
   while (to_fix != root && to_fix->parent->color == Color::red){ // this should be a black node or the tree should be rotated
     Node* parent1 = to_fix->parent;
@@ -103,6 +104,9 @@ void fix_insert(Node* to_fix){
         rotate_left(parent2);
       }
     }
+  }
+  if (to_fix->parent != nullptr && to_fix->parent->color == Color::red && to_fix->color == Color::red){ // make parent black if both parent and self are red
+    to_fix->parent->color = Color::black;
   }
   root->color = Color::black;
 }
