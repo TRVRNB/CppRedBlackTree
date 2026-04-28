@@ -194,6 +194,7 @@ int main(){
       cout << WHITE << "LOAD: adds multiple numbers from a file" << endl;
       cout << WHITE << "PRINT: prints the tree" << endl;
       cout << WHITE << "SEARCH: find if a number exists" << endl;
+      cout << WHITE << "DELETE: delete a number from the tree (if it exists!)" << endl;
     } else if (input == "ADD"){ // ADD
       string input1;
       cout << GREEN << "Enter an integer (1-999): " << RESET << flush;
@@ -300,6 +301,16 @@ int main(){
       } else { // success
 	cout << WHITE << "That number exists!" << endl;
       }
+    } else if (input == "DELETE"){ // DELETE
+      // deletion is extremely nontrivial in R/B tree due to, well, the whole balancing thing
+      // it was difficult already, but this is going to be much harder
+      // one very hacky solution i can think of that i would definitely get a bad grade for is just unwrapping the tree into a big vector and then repeatedly calling add_to_tree() with the numbers in the vector, excluding the one DELETE was called on (you could even make it faster by sorting the vector and starting in the middle!)
+      // this would work but i know for a fact it's not what i'm supposed to do, so i'll only do it if i am genuinely out of ideas
+      // it'd also probably be O(n^2) which is bad time complexity for a simple data structure, even if it is for deletion
+      string input1;
+      cout << RESET << "What number do you want to delete?: " << flush;
+      cin >> input1;
+      unsigned short to_delete = stoi(input1);
     }
   }
   cout << YELLOW << "Goodbye!" << endl;
