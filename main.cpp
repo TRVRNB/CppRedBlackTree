@@ -18,7 +18,7 @@ using namespace std;
 // these rules guarantee that the binary tree is somewhat balanced, but a special rebalancing function needs to be added
 
 namespace red_black_tree{
-  string version = "1.5";
+  string version = "1.6";
   Node* root = new Node(0);
 }
 using namespace red_black_tree;
@@ -105,7 +105,7 @@ void fix_insert(Node* to_fix){
       }
     }
   }
-  if (to_fix->parent != nullptr && to_fix->parent->color == Color::red && to_fix->color == Color::red){ // make parent black if both parent and self are red
+  if (to_fix != nullptr && to_fix->parent != nullptr && to_fix->parent->color == Color::red && to_fix->color == Color::red){ // make parent black if both parent and self are red
     to_fix->parent->color = Color::black;
   }
   root->color = Color::black;
@@ -223,7 +223,7 @@ int main(){
       
     } else if (input == "LOAD"){ // LOAD
       // this is mostly copied from my heap loading code
-      cout << GREEN << "Enter the filname (max 80 chars): " << RESET << flush;
+      cout << GREEN << "Enter the filename (max 80 chars): " << RESET << flush;
       string input;
       cin >> input;
       // make the file
@@ -265,7 +265,7 @@ int main(){
       }
       
     } else if (input == "SEARCH"){ // SEARCH
-      if (root == nullptr){
+      if (root == nullptr || root->value == 0){
 	cout << RED << "Add some numbers first!" << endl;
 	continue;
       }
@@ -302,15 +302,65 @@ int main(){
 	cout << WHITE << "That number exists!" << endl;
       }
     } else if (input == "DELETE"){ // DELETE
-      // deletion is extremely nontrivial in R/B tree due to, well, the whole balancing thing
+      // deletion is extremely nontrivial in R/B tree due to the whole balancing thing
       // it was difficult already, but this is going to be much harder
       // one very hacky solution i can think of that i would definitely get a bad grade for is just unwrapping the tree into a big vector and then repeatedly calling add_to_tree() with the numbers in the vector, excluding the one DELETE was called on (you could even make it faster by sorting the vector and starting in the middle!)
       // this would work but i know for a fact it's not what i'm supposed to do, so i'll only do it if i am genuinely out of ideas
-      // it'd also probably be O(n^2) which is bad time complexity for a simple data structure, even if it is for deletion
-      string input1;
+      // it'd also probably be O(n^2) which is bad time complexity for a simple data structure, even if it is for deletion (which is probably more acceptable to have bad complexity for compared to searching in a binary tree)
+      // (a slightly better version of this: i could just recursively add all the children of to_delete)
+      if (root->value == 0){
+	cout << RED << "Add some numbers first!" << endl;
+	continue;
+      }
+      string input; // this isn't technically in the same scope, so the original input still exists but is inaccessible here
       cout << RESET << "What number do you want to delete?: " << flush;
-      cin >> input1;
-      unsigned short to_delete = stoi(input1);
+      cin >> input;
+      unsigned short to_find = stoi(input);
+      Node* current_node = root;
+      // no need to keep track of previous_node due to having a parent pointer
+      while (current_node->value != to_find){
+	if (current_node->value > to_find){ // too high
+	  current_node = current_node->left;
+	} else { // too low
+	  current_node = current_node->right;
+	}
+	if (current_node->value == 0){ // null
+	  current_node = current_node->parent;
+	  break; // this prevents an infinite loop
+	}
+      } if (current_node->value != to_find){ // failure
+	cout << RED << "No instances of " << to_find << " found." << endl;
+	continue;
+      }
+      // current_node is the node i want to delete
+      Node* to_delete = current_node; // may end up using current_node later?
+      // i will try to think of every possible case here
+      if (to_delete == root){
+	// ROOT
+	delete to_delete;
+	root = new Node(0);
+	cout << WHITE << "Deleted " << input << '.' << endl;
+	continue;
+      }
+      if (to_delete->left->value == 0 && to_delete->right->value == 0){
+	// NO CHILDREN
+	current_node = to_delete->parent;
+	Color color = to_delete->color;
+	// simplest possible case (red w/ no children)
+	if (to_delete == current_node->left){ // is left child
+	  current_node->left = new Node(0);
+	} else { // is right child
+	  current_node->right = new Node(0);
+	}
+	delete to_delete; // UPDATED DESTRUCTOR (check node.cpp if you forgot, there is no memory leak)
+	cout << WHITE << "Deleted " << input << '.' << endl;
+	// red w/ no children is the simplest possible case
+	if (color == Color::red) continue;
+	// if it was black, then there is a black node missing from this path
+
+      }
+      
+      
     }
   }
   cout << YELLOW << "Goodbye!" << endl;
