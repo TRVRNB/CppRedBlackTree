@@ -20,6 +20,8 @@ class Node{
   Node* left = nullptr; // left child, must be smaller
   Node* right = nullptr; // right child, must be bigger
   Color color = Color::red; // is this node red or black
+  Node* get_child(short child);
+  void set_child(short child, Node* new_child);
 };
 
 #endif

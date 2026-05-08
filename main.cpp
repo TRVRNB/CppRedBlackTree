@@ -18,97 +18,67 @@ using namespace std;
 // these rules guarantee that the binary tree is somewhat balanced, but a special rebalancing function needs to be added
 
 namespace red_black_tree{
-  string version = "1.6";
+  string version = "1.7";
   Node* root = new Node(0);
 }
 using namespace red_black_tree;
 
-void rotate_left(Node* to_rotate){
-  // swap this node with its right child, which is guaranteed to be greater, both will keep their right children
-  Node* node2 = to_rotate->right;
-  to_rotate->right = node2->left;
-  if (node2->left != nullptr && node2->left->value != 0){ // through most compilers, the != nullptr check should prevent the next from running if it's false
-    node2->left->parent = to_rotate; // update parent
+Node* rotate(Node* to_rotate, short dir){
+  // rotate this subtree; dir should be -1 (left) or 1 (right)
+  // based on the --C++ version on en.wikipedia.org/wiki/Red-black_tree
+  Node* old_parent = to_rotate->parent;
+  Node* new_parent = to_rotate->get_child(-dir); // -dir is the opposite direction
+  Node* new_child = new_parent->get_child(dir);
+  to_rotate->set_child(-dir, new_child);
+  new_child->parent = to_rotate;
+  new_parent->set_child(dir, to_rotate);
+  to_rotate->parent = new_parent;
+  new_parent->parent = old_parent;
+  if (old_parent != nullptr){
+    if (to_rotate == old_parent->right) old_parent->right = new_parent;
+    else old_parent->left = new_parent;
+  } else {
+    root = new_parent;
   }
-  node2->parent = to_rotate->parent;
-  if (to_rotate == root){ // check for root case
-    root = node2; // change root
-  } else if (to_rotate == to_rotate->parent->left){ // is left child
-    to_rotate->parent->left = node2;
-  } else { // is right child
-    to_rotate->parent->right = node2;
-  }
-  node2->left = to_rotate;
-  to_rotate->parent = node2;
-}
-
-void rotate_right(Node* to_rotate){
-  // similar to rotate_left()
-  Node* node2 = to_rotate->left;
-  to_rotate->left = node2->right;
-  if (node2->right != nullptr && node2->right->value != 0){
-    node2->right->parent = to_rotate; // update parent
-  }
-  node2->parent = to_rotate->parent;
-  if (to_rotate == root){
-    root = node2;
-  } else if (to_rotate == to_rotate->parent->right){ // is right child
-    to_rotate->parent->right = node2;
-  } else { // is left child
-    to_rotate->parent->left = node2;
-  }
-  node2->right = to_rotate;
-  to_rotate->parent = node2;
+  return new_parent;
 }
 
 void fix_insert(Node* to_fix){
-  // i didn't notice, but sometimes this function creates R/R pairs, so i added a check to the end, but i don't know if it violates the black path rule?
-  // rebalance this branch of the tree
-  while (to_fix != root && to_fix->parent->color == Color::red){ // this should be a black node or the tree should be rotated
-    Node* parent1 = to_fix->parent;
-    Node* parent2 = parent1->parent; // this is guaranteed to not throw an error as long as to_fix isn't root
-    if (parent2 == nullptr){ // parent is root
-      break;
-    }
-    if (parent1 == parent2->left){ // is left grandchild
-      Node* aunt = parent2->right;
-      if (aunt->color == Color::red){ // if the aunt is currently red, try swapping the colors
-        parent1->color = Color::black;
-        aunt->color = Color::black;
-        parent2->color = Color::red;
-        to_fix = parent2; // work with grandparent now
-      } else { // this is more complicated because of the black-balancing requirement
-        if (to_fix == parent1->right){ // is right child
-          to_fix = parent1;
-          rotate_left(to_fix); // can barely wrap my mind around how this works, but this is how the R/B trees online work, so okay...
-          // to_fix should still be the grandchild of parent2, right?
-        }
-        parent1->color = Color::black;
-        parent2->color = Color::red;
-        rotate_right(parent2); // now, swap parent2 with the aunt node? is that right?
-      }
-    } else { // is right grandchild
-      Node* uncle = parent2->left; // assigning genders to left/right nodes was a weird idea in hindsight (especially since each child only has 1 parent, and this means the root node is genderless?)
-      if (uncle->color == Color::red){ // if uncle is currently red, try swapping the colors
-        parent1->color = Color::black;
-        uncle->color = Color::black;
-        parent2->color = Color::red;
-        to_fix = parent2; // work with grandparent now
-      } else { // same story as with the aunt
-        if (to_fix == parent1->left){
-          to_fix = parent1;
-          rotate_right(to_fix);
-        }
-        parent1->color = Color::black;
-        parent2->color = Color::red;
-        rotate_left(parent2);
-      }
-    }
+  // recursive function
+  // rebalance the tree, starting from this leaf node
+  // i think to_fix is guaranteed to be red at the start of this function
+  if (to_fix->parent->color == Color::black) return; // simplest case
+  Node* parent = to_fix->parent;
+  Node* grandparent = parent->parent;
+  if (grandparent == nullptr){
+    // this means there haven't been enough elements added to need serious rebalancing, can just change parent's color and the red insertion will not affect the black-depth rule (if parent is root it should be black anyway)
+    parent->color = Color::black;
+    return;
   }
-  if (to_fix != nullptr && to_fix->parent != nullptr && to_fix->parent->color == Color::red && to_fix->color == Color::red){ // make parent black if both parent and self are red
-    to_fix->parent->color = Color::black;
+  short dir = -1;
+  if (parent == grandparent->right) dir = 1;
+  Node* uncle = grandparent->get_child(-dir);
+  if (uncle->color == Color::black){
+    // fix black depth
+    if (to_fix == parent->get_child(-dir)){
+      // case 5 (inner grandchild)
+      rotate(parent, dir);
+      to_fix = parent;
+      parent = grandparent->get_child(dir);
+    }
+    rotate(grandparent, -dir);
+    parent->color = Color::black;
+    grandparent->color = Color::red;
+    return;
   }
-  root->color = Color::black;
+  parent->color = Color::black;
+  uncle->color = Color::black;
+  grandparent->color = Color::red;
+  if (grandparent->parent != nullptr) fix_insert(grandparent);
+  else {
+    root = grandparent;
+    grandparent->color = Color::black;
+  }
 }
 
 Node* add_to_tree(unsigned short to_add, Node* add_to){
@@ -132,7 +102,7 @@ Node* add_to_tree(unsigned short to_add, Node* add_to){
       add_to->left = child;
       child->parent = add_to;
       return child;
-    }
+    } // is not empty, keep searching through left
     return add_to_tree(to_add, add_to->left);
   } else { // greater than or equal to
     if (add_to->right->value == 0){
@@ -141,7 +111,7 @@ Node* add_to_tree(unsigned short to_add, Node* add_to){
       add_to->right = child;
       child->parent = add_to;
       return child;
-    }
+    } // is not empty, keep searching through right
     return add_to_tree(to_add, add_to->right);
   }
   // end
@@ -177,6 +147,18 @@ void print_tree(Node* to_print, unsigned short recursion){
   print_tree(to_print->left, recursion); // print left
 }
 
+void find_black_depth(vector<unsigned short>* black_depths, Node* current_node, unsigned short depth){
+  // if this is the end of a left path, push_back the current depth
+  // this is why null nodes need to be actual nodes
+  if (current_node->color == Color::black) depth++;
+  if (current_node->left != nullptr){ // if left exists
+    find_black_depth(black_depths, current_node->left, depth);
+  } else {
+    black_depths->push_back(depth);
+  }
+  if (current_node->right != nullptr) find_black_depth(black_depths, current_node->right, depth);
+}
+
 int main(){
   root->parent = nullptr; // JUST IN CASE!
   root->color = Color::black;
@@ -195,6 +177,7 @@ int main(){
       cout << WHITE << "PRINT: prints the tree" << endl;
       cout << WHITE << "SEARCH: find if a number exists" << endl;
       cout << WHITE << "DELETE: delete a number from the tree (if it exists!)" << endl;
+      cout << WHITE << "CHECK: check the black-depth condition" << endl;
     } else if (input == "ADD"){ // ADD
       string input1;
       cout << GREEN << "Enter an integer (1-999): " << RESET << flush;
@@ -250,16 +233,16 @@ int main(){
 	  }
 	  string_index++;
 	  unsigned short to_add = stoi(current_num);
-      Node* added = add_to_tree(to_add, root);
-      if (root->value == 0){
-        root = added;
-        root->parent = nullptr;
-        root->color = Color::black;
-        root->left->parent = root;
-        root->right->parent = root;
-      } else if (added != nullptr){
-        fix_insert(added);
-      }
+	  Node* added = add_to_tree(to_add, root);
+	  if (root->value == 0){
+	    root = added;
+	    root->parent = nullptr;
+	    root->color = Color::black;
+	    root->left->parent = root;
+	    root->right->parent = root;
+	  } else if (added != nullptr){
+	    fix_insert(added);
+	  }
 	}
       cout << WHITE << "Done!" << endl;
       }
@@ -361,6 +344,16 @@ int main(){
       }
       
       
+    } else if (input == "CHECK"){ // CHECK
+      vector<unsigned short>* black_depths = new vector<unsigned short>();
+      // this exists for debugging purposes, mostly
+      // i will use a recursive function
+      find_black_depth(black_depths, root, 0);
+      cout << RESET;
+      for (unsigned short depth : *black_depths){
+	cout << depth << ' ';
+      }
+      cout << endl;
     }
   }
   cout << YELLOW << "Goodbye!" << endl;
