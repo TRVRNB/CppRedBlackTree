@@ -18,7 +18,7 @@ using namespace std;
 // these rules guarantee that the binary tree is somewhat balanced, but a special rebalancing function needs to be added
 
 namespace red_black_tree{
-  string version = "1.7";
+  string version = "1.8";
   Node* root = new Node(0);
 }
 using namespace red_black_tree;
@@ -41,6 +41,14 @@ Node* rotate(Node* to_rotate, short dir){
     root = new_parent;
   }
   return new_parent;
+}
+
+void fix_delete(Node* child, Node* parent){
+  // sadly i can't completely 'cross-reference' the wikipedia version for deletion, since it uses goto statements which are probably not allowed (i don't want to use them either way honestly)
+  // this function is similar to fix_insert, it's a recursive component but the individual cases are handled by main()
+  // rebalance the tree, starting from the deleted node's parent, which is not a leaf no matter what! (this does not get called in root case, except when it has two children)
+  // I WILL IMPLEMENT THIS IN 1.9!
+
 }
 
 void fix_insert(Node* to_fix){
@@ -315,35 +323,79 @@ int main(){
 	cout << RED << "No instances of " << to_find << " found." << endl;
 	continue;
       }
+      // DELETION LOGIC
       // current_node is the node i want to delete
-      Node* to_delete = current_node; // may end up using current_node later?
-      // i will try to think of every possible case here
+      Node* to_delete = current_node;
+      Node* new_child = nullptr; // will be used for fix_delete
+      Color color = to_delete->color;
+      Node* parent = nullptr;
+      
       if (to_delete == root){
 	// ROOT
-	delete to_delete;
-	root = new Node(0);
-	cout << WHITE << "Deleted " << input << '.' << endl;
-	continue;
+	if (to_delete->left->value == 0 && to_delete->right->value == 0){ // root has no children!
+	  root = new Node(0);
+	  delete to_delete;
+	  cout << WHITE << "Deleted " << input << '.' << endl;
+	  continue;
+	} else if (to_delete->left->value == 0 || to_delete->right->value == 0){ // root has one child
+	  if (to_delete->left->value != 0) root = to_delete->left;
+	  else root = to_delete->right;
+	  delete to_delete;
+	  cout << WHITE << "Deleted " << input << '.' << endl;
+	  continue;
+	}
+	// if it's still running here, treat it like a non-leaf (root but with 2 children)
       }
+      // -----------------------------
       if (to_delete->left->value == 0 && to_delete->right->value == 0){
 	// NO CHILDREN
-	current_node = to_delete->parent;
-	Color color = to_delete->color;
-	// simplest possible case (red w/ no children)
+	parent = to_delete->parent;
+	new_child = new Node(0);
+	new_child->color = Color::black; // i think it will do this by default (can't be too safe though!)
+	new_child->parent = parent;
 	if (to_delete == current_node->left){ // is left child
-	  current_node->left = new Node(0);
+	  parent->left = new_child;
 	} else { // is right child
-	  current_node->right = new Node(0);
+	  parent->right = new_child;
 	}
-	delete to_delete; // UPDATED DESTRUCTOR (check node.cpp if you forgot, there is no memory leak)
+	delete to_delete;
+	if (color == Color::black){ // if it was black, there is a black node missing from this path
+	  fix_delete(new_child, parent);
+	}
 	cout << WHITE << "Deleted " << input << '.' << endl;
-	// red w/ no children is the simplest possible case
-	if (color == Color::red) continue;
-	// if it was black, then there is a black node missing from this path
-
+	continue;
+	// -----------------------------
+      } else if (to_delete->left->value == 0 || to_delete->right->value == 0){
+	// ONE CHILD
+	// this case is also very simple
+	parent = to_delete->parent;
+	if (to_delete->left->value != 0) child = to_delete->left; // has left child
+	else child = to_delete->right; // has right child
+	child->parent = parent;
+	// now, update the parent's children pointers
+	if (to_delete == parent->left) parent->left = child; // is left child
+	else parent->right = child; // is right child
+	delete to_delete; // this is safe since the only child is taken care of
+	if (color == Color::black){ // same as no children
+	  fix_delete(child, parent);
+	}
+	cout << WHITE << "Deleted " << input << '.' << endl;
+	continue;
+	// -----------------------------
+      } else {
+	// TWO CHILDREN
+	// by far the most non-trivial case!
+	// start by replacing to_delete with a distant nephew, use current_node to access the original
+	to_delete = to_delete->right;
+	while (to_delete->left->value != 0){ // while left child exists
+	  to_delete = to_delete->left;
+	}
+	current_node->value = to_delete->value; // override the original
+	parent = to_delete->parent;
+	// add the rest of this in 1.9! time to go to sleep (it's thursday)
+	
       }
-      
-      
+      // -------------------------------
     } else if (input == "CHECK"){ // CHECK
       vector<unsigned short>* black_depths = new vector<unsigned short>();
       // this exists for debugging purposes, mostly
