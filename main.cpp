@@ -18,7 +18,7 @@ using namespace std;
 // these rules guarantee that the binary tree is somewhat balanced, but a special rebalancing function needs to be added
 
 namespace red_black_tree{
-  string version = "1.8";
+  string version = "1.9";
   Node* root = new Node(0);
 }
 using namespace red_black_tree;
@@ -43,12 +43,46 @@ Node* rotate(Node* to_rotate, short dir){
   return new_parent;
 }
 
-void fix_delete(Node* child, Node* parent){
+void fix_delete(Node* current_node, Node* parent){
   // sadly i can't completely 'cross-reference' the wikipedia version for deletion, since it uses goto statements which are probably not allowed (i don't want to use them either way honestly)
   // this function is similar to fix_insert, it's a recursive component but the individual cases are handled by main()
   // rebalance the tree, starting from the deleted node's parent, which is not a leaf no matter what! (this does not get called in root case, except when it has two children)
-  // I WILL IMPLEMENT THIS IN 1.9!
-
+  while (current_node != root && current_node->color == Color::black){
+    short dir; // this function also uses the confusing rotations
+    if (current_node == parent->left) dir = -1;
+    else dir = 1;
+    Node* sibling = parent->get_child(-dir); // guaranteed to be other child
+    // first, check if sibling is red
+    if (sibling->color == Color::red){
+      sibling->color = Color::black;
+      parent->color = Color::red;
+      rotate(parent, dir);
+      sibling = parent->get_child(-dir);
+    }
+    // assume sibling is black now
+    if (sibling->left->color == Color::black && sibling->right->color == Color::black){ // sibling has 2 black children, likely a leaf or (originally) red node
+      sibling->color = Color::red;
+      current_node = parent; // go down the tree!
+      parent = current_node->parent; // formerly, grandparent
+      if (parent == nullptr) break; // check for root case ahead of time
+    } else { // at least 1 red child
+      if (sibling->get_child(-dir)->color == Color::black){ // outer child is black
+	sibling->get_child(dir)->color = Color::black;
+	sibling->color = Color::red; // assuming parent is not red (not sure if that's guaranteed or not at this point) this is valid
+	rotate(sibling, -dir);
+	sibling = parent->get_child(-dir);
+      }
+      // assume outer child is red?
+      sibling->color = parent->color;
+      parent->color = Color::black;
+      sibling->get_child(-dir)->color = Color::black;
+      rotate(parent, -dir);
+      // everything should be in order now!
+      current_node = root;
+      break;
+    }
+  }
+  current_node->color = Color::black; // finally, set this node to black
 }
 
 void fix_insert(Node* to_fix){
@@ -367,24 +401,24 @@ int main(){
 	// -----------------------------
       } else if (to_delete->left->value == 0 || to_delete->right->value == 0){
 	// ONE CHILD
-	// this case is also very simple
+	// this case is also fairly simple
 	parent = to_delete->parent;
-	if (to_delete->left->value != 0) child = to_delete->left; // has left child
-	else child = to_delete->right; // has right child
-	child->parent = parent;
+	if (to_delete->left->value != 0) new_child = to_delete->left; // has left child
+	else new_child = to_delete->right; // has right child
+	new_child->parent = parent;
 	// now, update the parent's children pointers
-	if (to_delete == parent->left) parent->left = child; // is left child
-	else parent->right = child; // is right child
+	if (to_delete == parent->left) parent->left = new_child; // is left child
+	else parent->right = new_child; // is right child
 	delete to_delete; // this is safe since the only child is taken care of
 	if (color == Color::black){ // same as no children
-	  fix_delete(child, parent);
+	  fix_delete(new_child, parent);
 	}
 	cout << WHITE << "Deleted " << input << '.' << endl;
 	continue;
 	// -----------------------------
       } else {
 	// TWO CHILDREN
-	// by far the most non-trivial case!
+	// by far the least trivial case!
 	// start by replacing to_delete with a distant nephew, use current_node to access the original
 	to_delete = to_delete->right;
 	while (to_delete->left->value != 0){ // while left child exists
@@ -392,8 +426,20 @@ int main(){
 	}
 	current_node->value = to_delete->value; // override the original
 	parent = to_delete->parent;
-	// add the rest of this in 1.9! time to go to sleep (it's thursday)
-	
+	new_child = to_delete->right; // left is guaranteed to be a null leaf node, so only right can contain a subtree
+	if (new_child->value == 0){ // right is null node
+	  new_child = new Node(0);
+	  new_child->color = Color::black;
+	}
+	new_child->parent = parent;
+	if (to_delete == parent->left) parent->left = new_child; // is left child
+	else parent->right = new_child; // is right child
+	Color deleted_color = to_delete->color;
+	delete to_delete;
+	if (deleted_color == Color::black){ // fix black depth
+	  fix_delete(new_child, parent);
+	}
+	cout << WHITE << "Deleted " << input << '.' << endl;
       }
       // -------------------------------
     } else if (input == "CHECK"){ // CHECK
@@ -410,4 +456,5 @@ int main(){
   }
   cout << YELLOW << "Goodbye!" << endl;
   return 0;
+  // i swear there was a RANDOM function that added a bunch of numbers, i have no clue where it went! probably some sort of git issue? (i may have created a branch on accident or something)
 }
