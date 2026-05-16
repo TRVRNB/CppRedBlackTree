@@ -8,7 +8,7 @@ data = ""
 
 
 for i in range(100):
-	# generate 100 numbers
+	# generate 20 numbers
 	num = random.randint(1, 999)
 	data += str(num) # add this to the line
 	if i != 99: # add space if it's not the last number

@@ -14,7 +14,6 @@ class Node{
   // node class for binary search tree
  public:
   Node(unsigned short n_value);
-  ~Node();
   unsigned short value; // what integer this node represents
   Node* parent = nullptr; // parent
   Node* left = nullptr; // left child, must be smaller

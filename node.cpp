@@ -6,13 +6,6 @@ Node::Node(unsigned short n_value){ // constructor
   value = n_value;
 }
 
-Node::~Node(){ // destructor
-  // delete children if they are null
-  if (value == 0) return;
-  if (left->value == 0) delete left;
-  if (right->value == 0) delete right;
-}
-
 Node* Node::get_child(short child){
   if (child == -1) return left;
   else return right;

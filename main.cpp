@@ -18,8 +18,9 @@ using namespace std;
 // these rules guarantee that the binary tree is somewhat balanced, but a special rebalancing function needs to be added
 
 namespace red_black_tree{
-  string version = "1.9";
-  Node* root = new Node(0);
+  string version = "1.10";
+  Node* null = new Node(0);
+  Node* root = null;
 }
 using namespace red_black_tree;
 
@@ -28,9 +29,10 @@ Node* rotate(Node* to_rotate, short dir){
   // based on the --C++ version on en.wikipedia.org/wiki/Red-black_tree
   Node* old_parent = to_rotate->parent;
   Node* new_parent = to_rotate->get_child(-dir); // -dir is the opposite direction
+  if (new_parent->value == 0) return to_rotate; // this was causing some bugs before, basically null can 'chop off' part of the tree if you set it to be a new parent in deletion (this never happens in insertion)
   Node* new_child = new_parent->get_child(dir);
   to_rotate->set_child(-dir, new_child);
-  new_child->parent = to_rotate;
+  if (new_child->value != 0) new_child->parent = to_rotate;
   new_parent->set_child(dir, to_rotate);
   to_rotate->parent = new_parent;
   new_parent->parent = old_parent;
@@ -45,7 +47,7 @@ Node* rotate(Node* to_rotate, short dir){
 
 void fix_delete(Node* current_node, Node* parent){
   // sadly i can't completely 'cross-reference' the wikipedia version for deletion, since it uses goto statements which are probably not allowed (i don't want to use them either way honestly)
-  // this function is similar to fix_insert, it's a recursive component but the individual cases are handled by main()
+  // this function is similar to fix_insert, it's an iterative component but the individual cases are handled by main()
   // rebalance the tree, starting from the deleted node's parent, which is not a leaf no matter what! (this does not get called in root case, except when it has two children)
   while (current_node != root && current_node->color == Color::black){
     short dir; // this function also uses the confusing rotations
@@ -65,10 +67,10 @@ void fix_delete(Node* current_node, Node* parent){
       current_node = parent; // go down the tree!
       parent = current_node->parent; // formerly, grandparent
       if (parent == nullptr) break; // check for root case ahead of time
-    } else { // at least 1 red child
-      if (sibling->get_child(-dir)->color == Color::black){ // outer child is black
+    } else { // sibling has at least 1 red child
+      if (sibling->get_child(-dir)->value != 0 && sibling->get_child(-dir)->color == Color::black){ // outer child is black
 	sibling->get_child(dir)->color = Color::black;
-	sibling->color = Color::red; // assuming parent is not red (not sure if that's guaranteed or not at this point) this is valid
+	if (sibling->value != 0) sibling->color = Color::red; // assuming parent is not red (not sure if that's guaranteed or not at this point) this is valid
 	rotate(sibling, -dir);
 	sibling = parent->get_child(-dir);
       }
@@ -83,6 +85,11 @@ void fix_delete(Node* current_node, Node* parent){
     }
   }
   current_node->color = Color::black; // finally, set this node to black
+  // reset null just in case something broke here, i'm not really sure
+  null->parent = nullptr;
+  null->left = null;
+  null->right = null;
+  null->color = Color::black;
 }
 
 void fix_insert(Node* to_fix){
@@ -127,20 +134,15 @@ Node* add_to_tree(unsigned short to_add, Node* add_to){
   if (add_to->value == 0){ // empty space is found (requirements are checked by the previous recursion), should also work for root
     Node* new_node = new Node(to_add);
     // again, create leaves
-    new_node->left = new Node(0);
-    new_node->left->color = Color::black;
-    new_node->left->parent = new_node;
-    new_node->right = new Node(0);
-    new_node->right->color = Color::black;
-    new_node->right->parent = new_node;
+    new_node->left = null;
+    new_node->right = null;
     new_node->color = Color::red; // treat red as 'default' for now?
-    new_node->parent = nullptr;
+    new_node->parent = add_to;
     return new_node;
   }
   if (to_add < add_to->value){ // less than
     if (add_to->left->value == 0){ // found leaf node to replace
       Node* child = add_to_tree(to_add, add_to->left);
-      delete add_to->left;
       add_to->left = child;
       child->parent = add_to;
       return child;
@@ -149,7 +151,6 @@ Node* add_to_tree(unsigned short to_add, Node* add_to){
   } else { // greater than or equal to
     if (add_to->right->value == 0){
       Node* child = add_to_tree(to_add, add_to->right);
-      delete add_to->right;
       add_to->right = child;
       child->parent = add_to;
       return child;
@@ -165,7 +166,7 @@ void print_tree(Node* to_print, unsigned short recursion){
     return;
   }
   recursion++;
-  print_tree(to_print->right, recursion); // print right first
+  if (to_print != null) print_tree(to_print->right, recursion); // print right first
   cout << RESET;
   for (int i = 2; i < recursion; i++){ // spaces before self
     cout << ' ';
@@ -186,24 +187,26 @@ void print_tree(Node* to_print, unsigned short recursion){
   } else {
     cout << "null" << endl;
   }
-  print_tree(to_print->left, recursion); // print left
+  if (to_print != null) print_tree(to_print->left, recursion); // print left
 }
 
 void find_black_depth(vector<unsigned short>* black_depths, Node* current_node, unsigned short depth){
   // if this is the end of a left path, push_back the current depth
   // this is why null nodes need to be actual nodes
   if (current_node->color == Color::black) depth++;
-  if (current_node->left != nullptr){ // if left exists
+  if (current_node != null){ // if left exists
     find_black_depth(black_depths, current_node->left, depth);
   } else {
     black_depths->push_back(depth);
   }
-  if (current_node->right != nullptr) find_black_depth(black_depths, current_node->right, depth);
+  if (current_node != null) find_black_depth(black_depths, current_node->right, depth);
 }
 
 int main(){
-  root->parent = nullptr; // JUST IN CASE!
-  root->color = Color::black;
+  null->parent = nullptr;
+  null->left = null;
+  null->right = null;
+  null->color = Color::black;
   cout << RED << "Red" << GREEN << '/' << WHITE << "Black" << GREEN << " Tree - Version " << version << endl;
   cout << YELLOW << "Type 'HELP' for a list of commands." << endl;
   string input;
@@ -248,7 +251,7 @@ int main(){
       
     } else if (input == "LOAD"){ // LOAD
       // this is mostly copied from my heap loading code
-      cout << GREEN << "Enter the filename (max 80 chars): " << RESET << flush;
+      cout << GREEN << "Enter the filename (max 400 chars): " << RESET << flush;
       string input;
       cin >> input;
       // make the file
@@ -285,6 +288,7 @@ int main(){
 	  } else if (added != nullptr){
 	    fix_insert(added);
 	  }
+	  cout << WHITE << "Added " << to_add << '.' << endl;
 	}
       cout << WHITE << "Done!" << endl;
       }
@@ -367,7 +371,7 @@ int main(){
       if (to_delete == root){
 	// ROOT
 	if (to_delete->left->value == 0 && to_delete->right->value == 0){ // root has no children!
-	  root = new Node(0);
+	  root = null;
 	  delete to_delete;
 	  cout << WHITE << "Deleted " << input << '.' << endl;
 	  continue;
@@ -375,6 +379,7 @@ int main(){
 	  if (to_delete->left->value != 0) root = to_delete->left;
 	  else root = to_delete->right;
 	  delete to_delete;
+	  root->color = Color::black;
 	  cout << WHITE << "Deleted " << input << '.' << endl;
 	  continue;
 	}
@@ -384,18 +389,15 @@ int main(){
       if (to_delete->left->value == 0 && to_delete->right->value == 0){
 	// NO CHILDREN
 	parent = to_delete->parent;
-	new_child = new Node(0);
-	new_child->color = Color::black; // i think it will do this by default (can't be too safe though!)
-	new_child->parent = parent;
-	if (to_delete == current_node->left){ // is left child
-	  parent->left = new_child;
-	} else { // is right child
-	  parent->right = new_child;
-	}
+	new_child = null;
+	if (to_delete == parent->left) parent->left = new_child; // is left child
+	else parent->right = new_child; // is right child
+	new_child->parent = parent; // this will get fixed up later (null child not having nullptr parent)
 	delete to_delete;
 	if (color == Color::black){ // if it was black, there is a black node missing from this path
 	  fix_delete(new_child, parent);
 	}
+	null->parent = nullptr;
 	cout << WHITE << "Deleted " << input << '.' << endl;
 	continue;
 	// -----------------------------
@@ -413,6 +415,7 @@ int main(){
 	if (color == Color::black){ // same as no children
 	  fix_delete(new_child, parent);
 	}
+	null->parent = nullptr;
 	cout << WHITE << "Deleted " << input << '.' << endl;
 	continue;
 	// -----------------------------
@@ -425,20 +428,17 @@ int main(){
 	  to_delete = to_delete->left;
 	}
 	current_node->value = to_delete->value; // override the original
+        color = to_delete->color;
 	parent = to_delete->parent;
 	new_child = to_delete->right; // left is guaranteed to be a null leaf node, so only right can contain a subtree
-	if (new_child->value == 0){ // right is null node
-	  new_child = new Node(0);
-	  new_child->color = Color::black;
-	}
-	new_child->parent = parent;
-	if (to_delete == parent->left) parent->left = new_child; // is left child
+	if (to_delete == parent->left) parent->left = new_child; // is left child (i think it's always left)
 	else parent->right = new_child; // is right child
-	Color deleted_color = to_delete->color;
+	new_child->parent = parent;
 	delete to_delete;
-	if (deleted_color == Color::black){ // fix black depth
+	if (color == Color::black){ // fix black depth
 	  fix_delete(new_child, parent);
 	}
+	null->parent = nullptr;
 	cout << WHITE << "Deleted " << input << '.' << endl;
       }
       // -------------------------------
@@ -457,4 +457,5 @@ int main(){
   cout << YELLOW << "Goodbye!" << endl;
   return 0;
   // i swear there was a RANDOM function that added a bunch of numbers, i have no clue where it went! probably some sort of git issue? (i may have created a branch on accident or something)
+  // this isn't a huge issue since i can just use LOAD but it's very strange since i specifically remember adding RANDOM while i was procrastinating implementing deletion
 }
