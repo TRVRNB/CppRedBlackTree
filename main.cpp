@@ -18,7 +18,7 @@ using namespace std;
 // these rules guarantee that the binary tree is somewhat balanced, but a special rebalancing function needs to be added
 
 namespace red_black_tree{
-  string version = "1.10";
+  string version = "1.11";
   Node* null = new Node(0);
   Node* root = null;
 }
@@ -68,7 +68,7 @@ void fix_delete(Node* current_node, Node* parent){
       parent = current_node->parent; // formerly, grandparent
       if (parent == nullptr) break; // check for root case ahead of time
     } else { // sibling has at least 1 red child
-      if (sibling->get_child(-dir)->value != 0 && sibling->get_child(-dir)->color == Color::black){ // outer child is black
+      if (sibling->get_child(-dir)->color == Color::black && sibling->get_child(dir)->color == Color::red){ // outer child is black, inner child is red
 	sibling->get_child(dir)->color = Color::black;
 	if (sibling->value != 0) sibling->color = Color::red; // assuming parent is not red (not sure if that's guaranteed or not at this point) this is valid
 	rotate(sibling, -dir);
